@@ -77,6 +77,7 @@ class CheckersApp:
             self.selected_piece = None
 
 
+
 if __name__ == "main":
     root = tk.Tk()
     app = CheckersApp(root)
