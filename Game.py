@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import messagebox
-
 from Board import Board
 
 
@@ -10,8 +9,18 @@ class CheckersApp:
         self.board = Board()
         self.cell_size = 60
         self.selected_piece = None
-        self.restart_button = tk.Button(root, text="Нова гра", command=self.restart)
-        self.restart_button.pack()
+
+        self.control_frame = tk.Frame(root)
+        self.control_frame.pack()
+
+        self.restart_button = tk.Button(self.control_frame, text="Нова гра", command=self.restart)
+        self.restart_button.pack(side=tk.LEFT, padx=10)
+
+        self.white_counter = tk.Label(self.control_frame, text="Знищено білих: 0")
+        self.white_counter.pack(side=tk.LEFT, padx=10)
+
+        self.black_counter = tk.Label(self.control_frame, text="Знищено чорних: 0")
+        self.black_counter.pack(side=tk.LEFT, padx=10)
 
         self.root.title("Шашки")
         self.canvas = tk.Canvas(
@@ -32,13 +41,15 @@ class CheckersApp:
         self.draw_board()
         self.canvas.bind("<Button-1>", self.handle_click)
 
-
-
-
     def restart(self):
         self.board = Board()
         self.selected_piece = None
+        self.update_counters()
         self.draw_board()
+
+    def update_counters(self):
+        self.white_counter.config(text=f"Знищено білих: {self.board.white_captured}")
+        self.black_counter.config(text=f"Знищено чорних: {self.board.black_captured}")
 
     def draw_board(self):
         self.canvas.delete("all")
@@ -85,13 +96,21 @@ class CheckersApp:
         else:
             start_row, start_col = self.selected_piece
             if self.board.move_piece((start_row, start_col), (row, col)):
+                self.update_counters()
                 self.draw_board()
-            self.selected_piece = None
+
+                if self.board.must_capture and self.board.last_capture_pos == (row, col):
+                    self.selected_piece = (row, col)
+                else:
+                    self.selected_piece = None
+            else:
+                self.selected_piece = None
+                self.draw_board()
 
         winner = self.board.check_winner()
         if winner:
             messagebox.showinfo("Гра завершена", f"Переміг гравець {winner}!")
-
+            self.restart()
 
 
 if __name__ == "__main__":
