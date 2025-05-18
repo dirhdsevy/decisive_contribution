@@ -5,6 +5,10 @@ class Board:
         self.size = 8
         self.grid = [[None for _ in range(self.size)] for _ in range(self.size)]
         self.current_player = 'white'
+        self.white_captured = 0
+        self.black_captured = 0
+        self.must_capture = False
+        self.last_capture_pos = None
         self.setup_pieces()
 
     def setup_pieces(self):
@@ -18,6 +22,49 @@ class Board:
                 if (row + col) % 2 == 1:
                     self.grid[row][col] = Piece('white', row, col)
 
+    def get_forced_captures(self):
+        captures = []
+        for row in range(self.size):
+            for col in range(self.size):
+                piece = self.grid[row][col]
+                if piece and piece.color == self.current_player:
+                    if piece.is_king:
+                        for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                            found_opponent = False
+                            distance = 1
+                            while True:
+                                check_row = row + dr * distance
+                                check_col = col + dc * distance
+                                if not (0 <= check_row < self.size and 0 <= check_col < self.size):
+                                    break
+
+                                if self.grid[check_row][check_col]:
+                                    if self.grid[check_row][check_col].color != self.current_player:
+                                        found_opponent = True
+                                    break
+                                distance += 1
+
+                            if found_opponent:
+                                jump_row = row + dr * (distance + 1)
+                                jump_col = col + dc * (distance + 1)
+                                if (0 <= jump_row < self.size and 0 <= jump_col < self.size and
+                                        self.grid[jump_row][jump_col] is None):
+                                    captures.append(((row, col), (jump_row, jump_col)))
+                    else:
+                        directions = [(-2, -2), (-2, 2)] if piece.color == 'white' else [(2, -2), (2, 2)]
+                        for dr, dc in directions:
+                            end_row = row + dr
+                            end_col = col + dc
+                            mid_row = row + dr // 2
+                            mid_col = col + dc // 2
+
+                            if (0 <= end_row < self.size and 0 <= end_col < self.size and
+                                    self.grid[end_row][end_col] is None and
+                                    self.grid[mid_row][mid_col] is not None and
+                                    self.grid[mid_row][mid_col].color != self.current_player):
+                                captures.append(((row, col), (end_row, end_col)))
+        return captures
+
     def is_valid_move(self, start, end):
         start_row, start_col = start
         end_row, end_col = end
@@ -25,12 +72,34 @@ class Board:
 
         if not (0 <= end_row < self.size and 0 <= end_col < self.size):
             return False
-
         if piece is None or piece.color != self.current_player:
             return False
 
-        if abs(end_row - start_row) != 1 or abs(end_col - start_col) != 1:
-            return False
+        forced_captures = self.get_forced_captures()
+        if forced_captures:
+            return (start, end) in forced_captures
+
+        if not piece.is_king:
+            if piece.color == 'white' and end_row >= start_row:
+                return False
+            if piece.color == 'black' and end_row <= start_row:
+                return False
+
+            if abs(end_row - start_row) != 1 or abs(end_col - start_col) != 1:
+                return False
+        else:
+            if abs(end_row - start_row) != abs(end_col - start_col):
+                return False
+
+            step_row = 1 if end_row > start_row else -1
+            step_col = 1 if end_col > start_col else -1
+            current_row, current_col = start_row + step_row, start_col + step_col
+
+            while current_row != end_row and current_col != end_col:
+                if self.grid[current_row][current_col] is not None:
+                    return False
+                current_row += step_row
+                current_col += step_col
 
         if self.grid[end_row][end_col] is not None:
             return False
@@ -39,9 +108,11 @@ class Board:
 
     def switch_player(self):
         self.current_player = 'black' if self.current_player == 'white' else 'white'
+        self.must_capture = False
+        self.last_capture_pos = None
 
     def move_piece(self, start, end):
-        if not self.is_valid_move(start, end) and not self.is_capture_move(start, end):
+        if not self.is_valid_move(start, end):
             return False
 
         start_row, start_col = start
@@ -51,10 +122,29 @@ class Board:
         self.grid[end_row][end_col] = piece
         piece.row, piece.col = end_row, end_col
 
-        if self.is_capture_move(start, end):
-            mid_row = (start_row + end_row) // 2
-            mid_col = (start_col + end_col) // 2
-            self.grid[mid_row][mid_col] = None
+        if abs(start_row - end_row) >= 2:
+            step_row = 1 if end_row > start_row else -1
+            step_col = 1 if end_col > start_col else -1
+            current_row, current_col = start_row + step_row, start_col + step_col
+            captured_positions = []
+
+            while current_row != end_row and current_col != end_col:
+                if self.grid[current_row][current_col] is not None:
+                    captured_piece = self.grid[current_row][current_col]
+                    if captured_piece.color == 'white':
+                        self.white_captured += 1
+                    else:
+                        self.black_captured += 1
+                    self.grid[current_row][current_col] = None
+                    captured_positions.append((current_row, current_col))
+                current_row += step_row
+                current_col += step_col
+
+            if captured_positions:
+                self.must_capture = True
+                self.last_capture_pos = (end_row, end_col)
+                if self.get_forced_captures():
+                    return True
 
         if (piece.color == 'white' and end_row == 0) or \
                 (piece.color == 'black' and end_row == self.size - 1):
@@ -62,18 +152,6 @@ class Board:
 
         self.switch_player()
         return True
-
-    def is_capture_move(self, start, end):
-        start_row, start_col = start
-        end_row, end_col = end
-        mid_row = (start_row + end_row) // 2
-        mid_col = (start_col + end_col) // 2
-        return (
-                abs(start_row - end_row) == 2 and
-                abs(start_col - end_col) == 2 and
-                self.grid[mid_row][mid_col] is not None and
-                self.grid[mid_row][mid_col].color != self.current_player
-        )
 
     def check_winner(self):
         white_exists = any(piece for row in self.grid for piece in row if piece and piece.color == "white")
