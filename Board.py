@@ -1,4 +1,4 @@
-from Piece import Piece 
+from Piece import Piece
 
 class Board:
     def __init__(self):
@@ -41,20 +41,44 @@ class Board:
         self.current_player = 'black' if self.current_player == 'white' else 'white'
 
     def move_piece(self, start, end):
-        if not self.is_valid_move(start, end):
+        if not self.is_valid_move(start, end) and not self.is_capture_move(start, end):
             return False
 
         start_row, start_col = start
         end_row, end_col = end
-
         piece = self.grid[start_row][start_col]
         self.grid[start_row][start_col] = None
         self.grid[end_row][end_col] = piece
         piece.row, piece.col = end_row, end_col
 
+        if self.is_capture_move(start, end):
+            mid_row = (start_row + end_row) // 2
+            mid_col = (start_col + end_col) // 2
+            self.grid[mid_row][mid_col] = None
+
         if (piece.color == 'white' and end_row == 0) or \
-            (piece.color == 'black' and end_row == self.size - 1):
-                piece.promote_to_king()
+                (piece.color == 'black' and end_row == self.size - 1):
+            piece.promote_to_king()
 
         self.switch_player()
         return True
+
+    def is_capture_move(self, start, end):
+        start_row, start_col = start
+        end_row, end_col = end
+        mid_row = (start_row + end_row) // 2
+        mid_col = (start_col + end_col) // 2
+        return (
+                abs(start_row - end_row) == 2 and
+                abs(start_col - end_col) == 2 and
+                self.grid[mid_row][mid_col] is not None and
+                self.grid[mid_row][mid_col].color != self.current_player
+        )
+
+    def check_winner(self):
+        white_exists = any(piece for row in self.grid for piece in row if piece and piece.color == "white")
+        black_exists = any(piece for row in self.grid for piece in row if piece and piece.color == "black")
+        if not white_exists: return "black"
+        if not black_exists: return "white"
+        return None
+

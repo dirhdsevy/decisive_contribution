@@ -1,5 +1,5 @@
 class Piece:
-    def init(self, color, row, col):
+    def __init__(self, color, row, col):
         self.color = color
         self.row = row
         self.col = col

@@ -1,4 +1,6 @@
 import tkinter as tk
+from tkinter import messagebox
+
 from Board import Board
 
 
@@ -8,6 +10,8 @@ class CheckersApp:
         self.board = Board()
         self.cell_size = 60
         self.selected_piece = None
+        self.restart_button = tk.Button(root, text="Нова гра", command=self.restart)
+        self.restart_button.pack()
 
         self.root.title("Шашки")
         self.canvas = tk.Canvas(
@@ -27,6 +31,14 @@ class CheckersApp:
 
         self.draw_board()
         self.canvas.bind("<Button-1>", self.handle_click)
+
+
+
+
+    def restart(self):
+        self.board = Board()
+        self.selected_piece = None
+        self.draw_board()
 
     def draw_board(self):
         self.canvas.delete("all")
@@ -76,9 +88,13 @@ class CheckersApp:
                 self.draw_board()
             self.selected_piece = None
 
+        winner = self.board.check_winner()
+        if winner:
+            messagebox.showinfo("Гра завершена", f"Переміг гравець {winner}!")
 
 
-if __name__ == "main":
+
+if __name__ == "__main__":
     root = tk.Tk()
     app = CheckersApp(root)
     root.mainloop()
