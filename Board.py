@@ -22,12 +22,14 @@ class Board:
                 if (row + col) % 2 == 1:
                     self.grid[row][col] = Piece('white', row, col)
 
-    def get_forced_captures(self):
+    def get_forced_captures(self, only_for_piece=None):
         captures = []
         for row in range(self.size):
             for col in range(self.size):
                 piece = self.grid[row][col]
                 if piece and piece.color == self.current_player:
+                    if only_for_piece and (row, col) != only_for_piece:
+                        continue
                     if piece.is_king:
                         for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
                             found_opponent = False
@@ -51,7 +53,7 @@ class Board:
                                         self.grid[jump_row][jump_col] is None):
                                     captures.append(((row, col), (jump_row, jump_col)))
                     else:
-                        directions = [(-2, -2), (-2, 2)] if piece.color == 'white' else [(2, -2), (2, 2)]
+                        directions = [(-2, -2), (-2, 2), (2, -2), (2, 2)]
                         for dr, dc in directions:
                             end_row = row + dr
                             end_col = col + dc
@@ -122,6 +124,8 @@ class Board:
         self.grid[end_row][end_col] = piece
         piece.row, piece.col = end_row, end_col
 
+        multi_capture_occurred = False
+
         if abs(start_row - end_row) >= 2:
             step_row = 1 if end_row > start_row else -1
             step_col = 1 if end_col > start_col else -1
@@ -143,8 +147,11 @@ class Board:
             if captured_positions:
                 self.must_capture = True
                 self.last_capture_pos = (end_row, end_col)
-                if self.get_forced_captures():
+                if self.get_forced_captures(only_for_piece=(end_row, end_col)):
                     return True
+                else:
+                    self.must_capture = False
+                    self.last_capture_pos = None
 
         if (piece.color == 'white' and end_row == 0) or \
                 (piece.color == 'black' and end_row == self.size - 1):
