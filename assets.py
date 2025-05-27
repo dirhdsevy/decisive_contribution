@@ -15,13 +15,11 @@ class Assets:
         self.text_color = "#ecf0f1"
         self.accent_color = "#e74c3c"
 
-        # Абсолютний шлях до файлу музики
         self.music_file = os.path.join(os.path.dirname(__file__), "background.wav")
         self._is_playing = False
         self._music_process = None
         self._music_thread = None
 
-        # Налаштування логування
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 

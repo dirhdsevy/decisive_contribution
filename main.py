@@ -5,8 +5,7 @@ import threading
 from Board import Board
 from players import AIPlayer
 from server import CheckersServer
-from network_client import NetworkCheckersClient  # змінено імпорт
-
+from network_client import NetworkCheckersClient
 
 class CheckersApp:
     def __init__(self, root):
@@ -154,6 +153,7 @@ class MainMenu:
     def __init__(self, root):
         self.root = root
         self.assets = Assets()
+        self.server = None  # Для збереження екземпляра сервера
         self.setup_styles()
         self.setup_ui()
         self.assets.play_music()
@@ -199,7 +199,7 @@ class MainMenu:
             ("Гра з ботом", self.start_bot_game),
             ("Гра з другом", self.start_local_game),
             ("Гра по мережі", self.show_network_options),
-            ("Вихід", self.root.quit)
+            ("Вихід", self.quit)
         ]
 
         for text, command in buttons:
@@ -222,6 +222,7 @@ class MainMenu:
         network_win.title("Мережева гра")
         network_win.geometry("400x300")
         network_win.configure(bg="#f0f0f0")
+        network_win.protocol("WM_DELETE_WINDOW", lambda: self.on_close(network_win))
 
         tk.Label(
             network_win,
@@ -235,22 +236,29 @@ class MainMenu:
             network_win,
             text="Створити сервер",
             style="Menu.TButton",
-            command=lambda: self.start_network_game(True)
+            command=lambda: self.start_network_game(True, network_win)
         ).pack(pady=10)
 
         ttk.Button(
             network_win,
             text="Приєднатися до сервера",
             style="Menu.TButton",
-            command=lambda: self.start_network_game(False)
+            command=lambda: self.start_network_game(False, network_win)
         ).pack(pady=10)
 
-    def start_network_game(self, is_host):
+    def start_network_game(self, is_host, network_win):
+        network_win.destroy()  # Закриваємо поточне вікно мережевого режиму
         if is_host:
-            threading.Thread(target=CheckersServer().start, daemon=True).start()
+            if self.server:
+                messagebox.showwarning("Попередження", "Сервер уже запущено!")
+                self.show_network_options()  # Повертаємося до меню мережевої гри
+                return
+            self.server = CheckersServer()
+            threading.Thread(target=self.server.start, daemon=True).start()
             messagebox.showinfo("Сервер", "Сервер запущено на порті 9999")
-
-        self.start_game("network", is_host)
+            self.show_network_options()  # Відкриваємо меню мережевої гри
+        else:
+            self.start_game("network", is_host=False)
 
     def start_game(self, mode, is_host=False):
         self.root.withdraw()
@@ -261,16 +269,26 @@ class MainMenu:
             game = CheckersApp(game_window)
             game.start_bot_game()
         elif mode == "network":
-            if is_host:
-                game = CheckersApp(game_window)
-            else:
-                NetworkCheckersClient(game_window)
+            NetworkCheckersClient(game_window)
         else:
             CheckersApp(game_window)
 
     def on_close(self, window):
+        self.assets.stop_music()
+        if hasattr(window, 'app') and hasattr(window.app, 'sock'):
+            window.app.connected = False
+            if window.app.sock:
+                window.app.sock.close()
         window.destroy()
         self.root.deiconify()
+        self.assets.play_music()
+
+    def quit(self):
+        self.assets.stop_music()
+        if self.server:
+            self.server.server_socket.close()
+            self.server = None
+        self.root.destroy()
 
 
 if __name__ == "__main__":
