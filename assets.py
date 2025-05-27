@@ -1,18 +1,9 @@
 import tkinter as tk
 from tkinter import font
 import os
-import sys
-
-try:
-    import winsound
-except ImportError:
-    winsound = None
-
-try:
-    import pygame
-except ImportError:
-    pygame = None
-
+import logging
+import subprocess
+import threading
 
 class Assets:
     def __init__(self):
@@ -26,23 +17,56 @@ class Assets:
         self.text_color = "#ecf0f1"
         self.accent_color = "#e74c3c"
 
-        self.music_file = "background.wav"
+        # Абсолютний шлях до файлу музики
+        self.music_file = os.path.join(os.path.dirname(__file__), "background.wav")
+        self._is_playing = False
+        self._music_process = None
+        self._music_thread = None
+
+        # Налаштування логування
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
 
     def play_music(self):
-        if os.path.exists(self.music_file):
-            if sys.platform == "win32" and winsound:
-                try:
-                    winsound.PlaySound(self.music_file, winsound.SND_ASYNC | winsound.SND_LOOP)
-                except Exception as e:
-                    print(f"Помилка музики (winsound): {e}")
-            elif pygame:
-                try:
-                    pygame.mixer.init()
-                    pygame.mixer.music.load(self.music_file)
-                    pygame.mixer.music.play(-1)
-                except Exception as e:
-                    print(f"Помилка музики (pygame): {e}")
-            else:
-                print("Аудіо не підтримується: не встановлено winsound або pygame.")
-        else:
-            print(f"Файл музики {self.music_file} не знайдений")
+        if not os.path.exists(self.music_file):
+            self.logger.error(f"Файл музики {self.music_file} не знайдений")
+            return
+
+        if self._is_playing:
+            self.logger.info("Музика вже відтворюється")
+            return
+
+        try:
+            self.logger.info("Запуск відтворення музики через afplay")
+            self._is_playing = True
+            self._music_thread = threading.Thread(
+                target=self._play_music_loop,
+                daemon=True
+            )
+            self._music_thread.start()
+        except Exception as e:
+            self._is_playing = False
+            self.logger.error(f"Помилка запуску відтворення музики: {e}")
+
+    def _play_music_loop(self):
+        while self._is_playing:
+            try:
+                self._music_process = subprocess.Popen(
+                    ["afplay", self.music_file],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                self._music_process.wait()  # Чекаємо завершення відтворення
+            except Exception as e:
+                self.logger.error(f"Помилка в циклі відтворення: {e}")
+                self._is_playing = False
+                break
+
+    def stop_music(self):
+        if self._is_playing:
+            self._is_playing = False
+            if self._music_process:
+                self._music_process.terminate()  # Завершуємо процес
+                self._music_process = None
+            self._music_thread = None
+            self.logger.info("Музика зупинена")
