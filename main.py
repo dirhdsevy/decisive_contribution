@@ -5,7 +5,7 @@ import threading
 from Board import Board
 from players import AIPlayer
 from server import CheckersServer
-from client import NetworkCheckersClient
+from network_client import NetworkCheckersClient  # змінено імпорт
 
 
 class CheckersApp:

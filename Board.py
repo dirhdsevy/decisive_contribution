@@ -30,41 +30,17 @@ class Board:
                 if piece and piece.color == self.current_player:
                     if only_for_piece and (row, col) != only_for_piece:
                         continue
-                    if piece.is_king:
-                        for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
-                            found_opponent = False
-                            distance = 1
-                            while True:
-                                check_row = row + dr * distance
-                                check_col = col + dc * distance
-                                if not (0 <= check_row < self.size and 0 <= check_col < self.size):
-                                    break
-
-                                if self.grid[check_row][check_col]:
-                                    if self.grid[check_row][check_col].color != self.current_player:
-                                        found_opponent = True
-                                    break
-                                distance += 1
-
-                            if found_opponent:
-                                jump_row = row + dr * (distance + 1)
-                                jump_col = col + dc * (distance + 1)
-                                if (0 <= jump_row < self.size and 0 <= jump_col < self.size and
-                                        self.grid[jump_row][jump_col] is None):
-                                    captures.append(((row, col), (jump_row, jump_col)))
-                    else:
-                        directions = [(-2, -2), (-2, 2), (2, -2), (2, 2)]
-                        for dr, dc in directions:
-                            end_row = row + dr
-                            end_col = col + dc
-                            mid_row = row + dr // 2
-                            mid_col = col + dc // 2
-
-                            if (0 <= end_row < self.size and 0 <= end_col < self.size and
-                                    self.grid[end_row][end_col] is None and
-                                    self.grid[mid_row][mid_col] is not None and
-                                    self.grid[mid_row][mid_col].color != self.current_player):
-                                captures.append(((row, col), (end_row, end_col)))
+                    directions = [(-2, -2), (-2, 2), (2, -2), (2, 2)]
+                    for dr, dc in directions:
+                        end_row = row + dr
+                        end_col = col + dc
+                        mid_row = row + dr // 2
+                        mid_col = col + dc // 2
+                        if (0 <= end_row < self.size and 0 <= end_col < self.size and
+                                self.grid[end_row][end_col] is None and
+                                self.grid[mid_row][mid_col] and
+                                self.grid[mid_row][mid_col].color != self.current_player):
+                            captures.append(((row, col), (end_row, end_col)))
         return captures
 
     def is_valid_move(self, start, end):
